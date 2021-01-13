@@ -1,13 +1,12 @@
 import PySimpleGUI as sg
 import layout_directive_definitions as lddm
 
-# - - - - - - - - - - - - - - - - layout decorator functions- - - - - - - - - - - - - - -
-
 
 def get_key_from_label(label):
     return label.lower().replace(" ", "_")
 
 
+# - - - - - - - - - - - - - - - - layout decorator functions- - - - - - - - - - - - - - -
 def get_gstyle(gelem_cons, gid, pre, label, style={}, labeler=None):
     '''
     gstyle: style for a gelem
@@ -139,17 +138,6 @@ def get_layout_generator_bld(bld):
     return final_layout_instance_generator
 
 
-def get_layout_generator(ld):
-    '''
-    returns a layout generator that takes input as label and returns a
-    Frame or Column element
-    '''
-    if isinstance(ld, lddm.TreeNodeLD):
-        return get_layout_generator_tnld(ld)
-    elif isinstance(ld, lddm.BlockLD):
-        return getattr(ld, "instance_generator")
-
-
 def get_layout_generator_tnld(tnld):
     '''
     returns a layout generator that takes input as label and returns a
@@ -168,6 +156,17 @@ def get_layout_generator_tnld(tnld):
     return final_layout_gen
 
 
+def get_layout_generator(ld):
+    '''
+    returns a layout generator that takes input as label and returns a
+    Frame or Column element
+    '''
+    if isinstance(ld, lddm.TreeNodeLD):
+        return get_layout_generator_tnld(ld)
+    elif isinstance(ld, lddm.BlockLD):
+        return getattr(ld, "instance_generator")
+
+
 def set_bld_layout_generator(ld):
     '''
     ld: a block or tree directive
@@ -183,7 +182,7 @@ def set_bld_layout_generator(ld):
                 get_layout_generator_bld(ld))
 
 
-# . . . . . . . . . . . . . . . . . . end layout template functions . . . . . . . . . . . .
+# . . . . . . . . . . . . . . . . . . end layout  functions . . . . . . . . . . . .
 
 
 def get_layout_block(bld, labels=[""], stacked='H', framed=False):

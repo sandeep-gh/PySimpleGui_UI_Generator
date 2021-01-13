@@ -1,9 +1,10 @@
 class Gelem:
-    def __init__(self, gid, banner_prefix,  cons, sty):
+    def __init__(self, gid, banner_prefix,  cons, sty, ex_toggle_attrs=None):
         self.gid = gid
         self.banner_prefix = banner_prefix
         self.gcons = cons
         self.sty = sty
+        self.ex_toggle_attrs = ex_toggle_attrs
 
 
 class BlockLD:

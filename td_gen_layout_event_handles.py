@@ -11,7 +11,8 @@ import event_codegen as ecm
 bld1 = BlockLD([
     Gelem("button1", "button 1", sg.Button,  sty={"auto_size_button": 'False',
                                                   "size": (8, 4)
-                                                  }),
+                                                  }, ex_toggle_attrs=[('button_color',  (
+                                                      ('white', 'green'), ('blue', 'black')))]),
     Gelem("button2", "button 2", sg.Button,  sty={"auto_size_button": 'False',
                                                   "size": (8, 4)
                                                   })

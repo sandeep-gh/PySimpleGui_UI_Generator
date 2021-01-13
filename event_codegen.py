@@ -5,6 +5,7 @@ import layout_directive_definitions as lddm
 from layout_generator_step_by_step import get_key_from_label
 import ast
 from ast import Pass
+import re
 
 action_body = """
 def on_event(window, event):
@@ -16,6 +17,8 @@ def on_event(window, event):
 \tprint("calling = ", "on_" + event + "_click")
 \tgetattr(event_app_action_module, "on_" + event + "_click")(window, appstate)
 """
+
+# - - - - - - - - - - - - - - - - - - ast funcs - - - - - - - - - - - - - - - - -
 
 
 def get_funcs_in_module(module_name):
@@ -33,6 +36,10 @@ def add_func_to_ast(func_name, ast_root,  defined_funcs):
     afuncNode = ast.FunctionDef(
         func_name, args=fn_args, decorator_list=[], lineno=None, body=[Pass()], types_ignores=[])
     ast_root.body.append(afuncNode)
+
+# ........................................................................................
+
+# - - - - - - - - - - - -  gen app/event actions - - - - - - - - - - - -
 
 
 def gen_app_actions_bld(bld, labels, add_event_to_ast):
@@ -60,6 +67,10 @@ def gen_event_action_lookup_bld(bld, labels, lid, fh):
     fh.write(
         "everything_bagel_dict = {**everything_bagel_dict, **" + lid + "_dict}\n")
 
+# .......................................................................................
+
+# - - - - - - - - - - - - - - - - navigation function - - - - - - - - - - - - - - - -
+
 
 def walk_tld(tnld):
     if isinstance(tnld.left_ld, lddm.BlockLD):
@@ -72,6 +83,69 @@ def walk_tld(tnld):
     if isinstance(tnld.right_ld, lddm.TreeNodeLD):
         walk_tld(tnld.rigt_ld)
 
+
+# - - - - - - - - - - - - - - - - exclusive toggle - - - - - - - - - - - - - - - -
+
+def gen_exclusive_toggle_code_snippet(gelem_name, toggle_attr, toggle_on_val, toggle_off_val, default_active):
+    toggler_id = gelem_name + "_" + toggle_attr  # should be prefix name
+    toggler_instance_expr = Template(
+        "__${gelem_name}_${toggle_attr}_toggler=ToggleExclusive('${toggle_attr}', ${toggle_on_val}, ${toggle_off_val}, '${curr_active_elem}')").substitute(gelem_name=gelem_name,
+                                                                                                                                                           toggle_attr=toggle_attr,
+                                                                                                                                                           toggle_on_val=toggle_on_val,
+                                                                                                                                                           toggle_off_val=toggle_off_val,
+                                                                                                                                                           curr_active_elem=default_active
+                                                                                                                                                           )
+
+    return toggler_instance_expr
+
+
+def gen_code_exclusive_toggle_gelem_attr(lid, gelem, toggle_attr, toggle_values,  labels):
+    toggler_inst_expr = gen_exclusive_toggle_code_snippet(
+        gelem.gid, toggle_attr, toggle_values[0], toggle_values[1], gelem.gid + get_key_from_label(labels[0]))
+
+    toggler_name = Template("__${gelem_name}_${toggle_attr}_toggler").substitute(
+        gelem_name=gelem.gid, toggle_attr=toggle_attr)
+    return [toggler_name, toggler_inst_expr]
+
+
+def gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels):
+
+    for bld in walk_tld(tnld):
+
+        for gelem in bld.layout_seq:
+            if gelem.ex_toggle_attrs is not None:
+                all_togglers = []
+                toggler_declarations = []
+                event_toggler_mapping = {}
+                for attr, vals in gelem.ex_toggle_attrs:
+                    [toggler_name, toggler_decl] = gen_code_exclusive_toggle_gelem_attr(lid,
+                                                                                        gelem, attr, vals, labels)
+                    all_togglers.append(toggler_name)
+                    toggler_declarations.append(toggler_decl)
+                    print(toggler_decl)
+                if all_togglers:
+                    for label in labels:
+                        event_name = gelem.gid + get_key_from_label(label)
+                        event_toggler_mapping[event_name] = all_togglers
+                if toggler_declarations:
+                    ea_code_fh.write("\n".join(toggler_declarations) + "\n")
+                    ea_code_fh.write(
+                        "all_togglers = all_togglers + [" + ",".join(all_togglers) + "]\n")
+
+                    event_toggler_mapping_str = re.sub(
+                        r'\'(__[^,]*toggler)\'(,|])', r"\1\2", str(event_toggler_mapping))
+                    ea_code_fh.write("adict = " +
+                                     event_toggler_mapping_str + "\n")
+                    ea_code_fh.write(
+                        "event_toggler_dict = {**event_toggler_dict, **adict}\n")
+
+
+# . . . . . . . . . . . . . . . . . . end exclusive toggle . . . . . . . . . . . .
+
+# - - - - - - - - - - - - - - - -  slides - - - - - - - - - - - - - - - -
+
+
+# . . . . . . . . . . . . . . . . . . end slides . . . . . . . . . . . .
 
 def gen_event_actions(tnld, labels):
     lid = "test_bld"
@@ -105,6 +179,8 @@ def gen_event_actions(tnld, labels):
         gen_app_actions_bld(bld, labels, event_ast_adder)
 
     # -------------------------- codegen closeout -------------------------------------------
+    gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels)
+
     fh.write("""def everything_bagel(window, event):\n
     \tif event in everything_bagel_dict:\n
     \t\teverything_bagel_dict[event].on_event(window, event)""")
