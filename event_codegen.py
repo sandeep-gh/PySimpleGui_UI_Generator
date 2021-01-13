@@ -141,15 +141,41 @@ def gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels):
 
 
 # . . . . . . . . . . . . . . . . . . end exclusive toggle . . . . . . . . . . . .
+#                                                                                #
+# - - - - - - - - - - - - - - - - - - slides - - - - - - - - - - - - - - - - - - -
 
-# - - - - - - - - - - - - - - - -  slides - - - - - - - - - - - - - - - -
+
+# . . . . . . . . . . . . . . . . . . end slides . . . . . . . . . . . . . . . . .
+# < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < > #
+# - - - - - - - - - - - - - - - - compose layouts  - - - - - - - - - - - - - - - -
+
+def build_layout(ltree_node_with_generator, labels):
+    ltng = ltree_node_with_generator
+    left_ld = ltng.left_ld
+    left_layout = build_layout_ldg(left_ld, labels)
+
+    if ltng.right_ld is None:
+        final_layout = left_layout
+        if ltng.framed:
+            final_layout = [[sg.Frame("", final_layout)]]
+        return final_layout
+
+    right_ld = ltng.right_ld
+    right_layout = build_layout_ldg(right_ld, labels)
+    final_layout = stitch_layouts(
+        [left_layout, right_layout], ltng.stacked, ltng.framed)
+
+    return final_layout
 
 
-# . . . . . . . . . . . . . . . . . . end slides . . . . . . . . . . . .
+# . . . . . . . . . . . . . . . . . . end compose layouts . . . . . . . . . . . .
+
+
+# - - - - - - - - - - - - - - - -  code gen APIs - - - - - - - - - - - - - - - -
 
 def gen_event_actions(tnld, labels):
     lid = "test_bld"
-    # -------------------------- codegen setup --------------------------------------------
+    # codegen setup
     fh = open("everything_bagel_dictionary.py", "w")
     fh.write(Template("import ${lid}_event_actions\n").substitute(
         lid=lid))
