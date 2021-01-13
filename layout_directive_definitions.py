@@ -23,7 +23,6 @@ class BlockLD:
 #         self.stacked = stacked
 #         self.framed = framed
 
-
 class TreeNodeLD:
     def __init__(self, left_ld, right_ld, stacked='H', framed=False):
         '''
@@ -35,6 +34,41 @@ class TreeNodeLD:
         self.stacked = stacked
         self.framed = framed
 
+
+class BlockLI:
+
+    def __init__(self, bld, labels=[""], stacked='H', framed=False, layout=None):
+        '''
+        label: an identifier for the block
+        '''
+        self.bld = bld
+        self.labels = labels
+        self.stacked = stacked
+        self.framed = framed
+        self.layout = layout
+
+    @classmethod
+    def bli_single(cls, layout_seq, stacked='H', framed=False):
+        bld = BlockLD(layout_seq, stacked, framed)
+        labels = [""]
+        return cls(bld, labels)
+
+    @classmethod
+    def bli_set(cls, layout_seq, labels, istacked='H', iframed=False, sstacked='H', sframed=False):
+        bld = BlockLD(layout_seq, istacked, iframed)
+        return cls(bld, labels, sstacked, sframed)
+
+
+class TreeNodeLI:
+    def __init__(self, left_li, right_li, stacked='H', framed=False):
+        '''
+        left_lt: is TreeNodeLI
+        right-lt: is TreeNodeLI or BlockNodeLI
+        '''
+        self.left_li = left_li
+        self.right_li = right_li
+        self.stacked = stacked
+        self.framed = framed
 
 # class TreeLayoutDirective:
 #     def __init__(self, tlt, labels=[""], stacked='H', framed=False):
