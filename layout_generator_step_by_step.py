@@ -183,6 +183,53 @@ def set_bld_layout_generator(ld):
 
 
 # . . . . . . . . . . . . . . . . . . end layout  functions . . . . . . . . . . . .
+# < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < > #
+# - - - - - - - - - - - - - - - - compose layouts  - - - - - - - - - - - - - - - -
+
+def walk_tnli(tnli):
+    if isinstance(tnli.left_li, lddm.BlockLI):
+        yield tnli.left_li
+    elif isinstance(tnli.left_li, lddm.TreeNodeLI):
+        walk_tnli(tnli.left_li)
+
+    if isinstance(tnli.right_li, lddm.BlockLI):
+        yield tnli.right_li
+    elif isinstance(tnli.right_li, lddm.TreeNodeLI):
+        walk_tnli(tnld.rigt_li)
+
+
+def set_tnli_layout(tnli):
+    '''
+    '''
+    for bli in walk_tnli(tnli):
+        bli.layout = get_layout_block(
+            bli.bld, bli.labels, bli.stacked, bli.framed)
+
+
+def compose_layout_li(lin):
+    if isinstance(lin, lddm.TreeNodeLI):
+        return compose_layout_tnli(lin)
+    elif isinstance(lin, lddm.BlockLI):
+        return lin.layout
+
+
+def compose_layout_tnli(tnli):
+    left_layout = compose_layout_li(tnli.left_li)
+    if tnli.right_li is None:
+        final_layout = left_layout
+        if tnli.framed:
+            final_layout = [[sg.Frame("", final_layout)]]
+        return final_layout
+
+    right_li = tnli.right_li
+    right_layout = compose_layout_li(right_li)
+    final_layout = stitch_layouts(
+        [left_layout, right_layout], tnli.stacked, tnli.framed)
+
+    return final_layout
+
+
+# . . . . . . . . . . . . . . . . . . end compose layouts . . . . . . . . . . . .
 
 
 def get_layout_block(bld, labels=[""], stacked='H', framed=False):
