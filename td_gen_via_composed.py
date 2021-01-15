@@ -39,7 +39,7 @@ tnli = TreeNodeLI(bli1,
 lg.set_tnli_layout(tnli)
 the_layout = lg.compose_layout_li(tnli)
 
-# ecm.gen_event_actions(tnld, ['A', 'B'])
+ecm.gen_event_actions_li(tnli)
 # lgen = lg.get_layout_generator_tnld(tnld)
 # the_layout = lg.build_layout_set(
 #     lgen, ['A', 'B'], stacked='H', framed=False)

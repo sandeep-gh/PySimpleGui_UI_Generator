@@ -72,6 +72,18 @@ def gen_event_action_lookup_bld(bld, labels, lid, fh):
 # - - - - - - - - - - - - - - - - navigation function - - - - - - - - - - - - - - - -
 
 
+def walk_tli(tnli):
+    if isinstance(tnli.left_li, lddm.BlockLI):
+        yield (tnli.left_li.bld, tnli.left_li.labels)
+    if isinstance(tnli.left_li, lddm.TreeNodeLI):
+        walk_tli(tnli.left_li)
+
+    if isinstance(tnli.right_li, lddm.BlockLI):
+        yield (tnli.right_li.bld, tnli.right_li.labels)
+    if isinstance(tnli.right_li, lddm.TreeNodeLI):
+        walk_tli(tnli.rigt_li)
+
+
 def walk_tld(tnld):
     if isinstance(tnld.left_ld, lddm.BlockLD):
         yield tnld.left_ld
@@ -108,9 +120,9 @@ def gen_code_exclusive_toggle_gelem_attr(lid, gelem, toggle_attr, toggle_values,
     return [toggler_name, toggler_inst_expr]
 
 
-def gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels):
+def gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh):
 
-    for bld in walk_tld(tnld):
+    for (bld, labels) in bld_walker():
 
         for gelem in bld.layout_seq:
             if gelem.ex_toggle_attrs is not None:
@@ -147,28 +159,58 @@ def gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels):
 
 # . . . . . . . . . . . . . . . . . . end slides . . . . . . . . . . . . . . . . .
 # < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < > #
-# - - - - - - - - - - - - - - - - compose layouts  - - - - - - - - - - - - - - - -
+# - - - - - - - - - - - - - - - - layout instance code gen - - - - - - - - - - - - - -
+# TODO: currently two version are kept: one for tnld and another for tnli. Not sure both are required
+def gen_event_actions_li(tnli):
+    lid = "test_bld"
+    # codegen setup
+    fh = open("everything_bagel_dictionary.py", "w")
+    fh.write(Template("import ${lid}_event_actions\n").substitute(
+        lid=lid))
+    fh.write("everything_bagel_dict = {}\n")
+    if os.path.exists(lid + "_app_actions.py"):
+        defined_funcs = get_funcs_in_module(lid + "_app_actions.py")
+        apps_event_ast_root = ast.parse(open(lid + "_app_actions.py").read())
+    else:
+        defined_funcs = set()
+        apps_event_ast_root = ast.parse("")
 
-def build_layout(ltree_node_with_generator, labels):
-    ltng = ltree_node_with_generator
-    left_ld = ltng.left_ld
-    left_layout = build_layout_ldg(left_ld, labels)
+    def event_ast_adder(func_name, apps_event_ast_root=apps_event_ast_root,
+                        defined_funcs=defined_funcs): return add_func_to_ast(func_name, apps_event_ast_root, defined_funcs)
+    # event_actions.py header
+    ea_code_fh = open(lid
+                      + "_event_actions.py", "w")
+    ea_code_fh.write(
+        "from everything_bagel_common import ToggleExclusive, ToggleExclusiveOther\n")
+    ea_code_fh.write("import importlib\n")
+    ea_code_fh.write("all_togglers = [" + "]\n")
+    ea_code_fh.write("event_toggler_dict = {}\n")
 
-    if ltng.right_ld is None:
-        final_layout = left_layout
-        if ltng.framed:
-            final_layout = [[sg.Frame("", final_layout)]]
-        return final_layout
+    # -------------------------- codegen body - --------------------------------------------
+    for bld, labels in walk_tli(tnli):
+        gen_event_action_lookup_bld(bld, labels, lid, fh)
+        # app_actions.py body
+        gen_app_actions_bld(bld, labels, event_ast_adder)
 
-    right_ld = ltng.right_ld
-    right_layout = build_layout_ldg(right_ld, labels)
-    final_layout = stitch_layouts(
-        [left_layout, right_layout], ltng.stacked, ltng.framed)
+    # -------------------------- codegen closeout -------------------------------------------
 
-    return final_layout
+    gen_code_exclusive_toggle(
+        lid, lambda tnli=tnli: walk_tli(tnli), ea_code_fh)
+
+    fh.write("""def everything_bagel(window, event):\n
+    \tif event in everything_bagel_dict:\n
+    \t\teverything_bagel_dict[event].on_event(window, event)""")
+    fh.close()
+    with open(lid + "_app_actions.py", "w") as fh:
+        fh.write(ast.unparse(apps_event_ast_root))
+
+    # event_actions.py on_action command
+    ea_code_fh.write(
+        Template(action_body).substitute(lid=lid))
+    ea_code_fh.close()
 
 
-# . . . . . . . . . . . . . . . . . . end compose layouts . . . . . . . . . . . .
+# . . . . . . . . . . . . . . . . . . layout instance code gen . . . . . . . . . . . .
 
 
 # - - - - - - - - - - - - - - - -  code gen APIs - - - - - - - - - - - - - - - -
@@ -205,7 +247,10 @@ def gen_event_actions(tnld, labels):
         gen_app_actions_bld(bld, labels, event_ast_adder)
 
     # -------------------------- codegen closeout -------------------------------------------
-    gen_code_exclusive_toggle(lid, tnld, ea_code_fh, labels)
+    def bld_walkder(tnld=tnld, lables=labels):
+        for bld in walk_tld(tnld):
+            yield (bld, labels)
+    gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh)
 
     fh.write("""def everything_bagel(window, event):\n
     \tif event in everything_bagel_dict:\n
