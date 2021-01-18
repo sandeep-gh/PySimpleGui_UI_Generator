@@ -1,11 +1,9 @@
-import PySimpleGUI as sg
 import time
+import pickle
+import PySimpleGUI as sg
 from layout_directive_definitions import Gelem, BlockLD, BlockLI
 from layout_directive_definitions import TreeNodeLD, TreeNodeLI
-import random
-import event_codegen as ecm
 import layout_generator_step_by_step as lg
-from everything_bagel_dictionary import everything_bagel
 import event_codegen as ecm
 
 bld1 = BlockLD([

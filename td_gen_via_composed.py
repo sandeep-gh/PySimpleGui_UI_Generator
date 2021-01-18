@@ -5,7 +5,7 @@ from layout_directive_definitions import TreeNodeLD, TreeNodeLI
 import random
 import event_codegen as ecm
 import layout_generator_step_by_step as lg
-#from everything_bagel_dictionary import everything_bagel
+from everything_bagel_dictionary import everything_bagel
 import event_codegen as ecm
 
 bld1 = BlockLD([
@@ -40,9 +40,6 @@ lg.set_tnli_layout(tnli)
 the_layout = lg.compose_layout_li(tnli)
 
 ecm.gen_event_actions_li(tnli)
-# lgen = lg.get_layout_generator_tnld(tnld)
-# the_layout = lg.build_layout_set(
-#     lgen, ['A', 'B'], stacked='H', framed=False)
 
 print(the_layout)
 layout = []
@@ -57,5 +54,5 @@ while True:
     print("event pressed = ", event)
     if event == 'Exit':
         break
-    #everything_bagel(window, event)
+    everything_bagel(window, event)
 window.close()

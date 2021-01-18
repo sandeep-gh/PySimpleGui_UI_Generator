@@ -133,7 +133,6 @@ def gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh):
                                                                                         gelem, attr, vals, labels)
                     all_togglers.append(toggler_name)
                     toggler_declarations.append(toggler_decl)
-                    print(toggler_decl)
                 if all_togglers:
                     for label in labels:
                         event_name = gelem.gid + get_key_from_label(label)
