@@ -36,7 +36,8 @@ class TreeNodeLD:
 
 
 class BlockLI:
-    def __init__(self, bld, labels, stacked='H', framed=False, layout=None):
+
+    def __init__(self, bld, labels=[""], stacked='H', framed=False, layout=None):
         '''
         label: an identifier for the block
         '''
@@ -45,6 +46,17 @@ class BlockLI:
         self.stacked = stacked
         self.framed = framed
         self.layout = layout
+
+    @classmethod
+    def bli_single(cls, layout_seq, stacked='H', framed=False):
+        bld = BlockLD(layout_seq, stacked, framed)
+        labels = [""]
+        return cls(bld, labels)
+
+    @classmethod
+    def bli_set(cls, layout_seq, labels, istacked='H', iframed=False, sstacked='H', sframed=False):
+        bld = BlockLD(layout_seq, istacked, iframed)
+        return cls(bld, labels, sstacked, sframed)
 
 
 class TreeNodeLI:

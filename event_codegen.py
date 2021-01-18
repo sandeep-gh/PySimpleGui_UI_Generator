@@ -8,14 +8,13 @@ from ast import Pass
 import re
 
 action_body = """
-def on_event(window, event):
+def on_event(window, values, event, appstate):
 \tif event in event_toggler_dict:
 \t\tfor exclusive_toggler in event_toggler_dict[event]:
 \t\t\texclusive_toggler.set_active(window, event)
 \tevent_app_action_module = importlib.import_module("${lid}_app_actions")
-\tappstate=None
 \tprint("calling = ", "on_" + event + "_click")
-\tgetattr(event_app_action_module, "on_" + event + "_click")(window, appstate)
+\tgetattr(event_app_action_module, "on_" + event + "_click")(window, values, appstate)
 """
 
 # - - - - - - - - - - - - - - - - - - ast funcs - - - - - - - - - - - - - - - - -
@@ -31,7 +30,7 @@ def get_funcs_in_module(module_name):
 def add_func_to_ast(func_name, ast_root,  defined_funcs):
     if func_name in defined_funcs:
         return
-    fn_args = ast.arguments([ast.arg('event'), ast.arg('appstate')], [], None, [], None,
+    fn_args = ast.arguments([ast.arg('window'), ast.arg('values'), ast.arg('appstate')], [], None, [], None,
                             None, [])
     afuncNode = ast.FunctionDef(
         func_name, args=fn_args, decorator_list=[], lineno=None, body=[Pass()], types_ignores=[])
@@ -197,9 +196,9 @@ def gen_event_actions_li(tnli):
     gen_code_exclusive_toggle(
         lid, lambda tnli=tnli: walk_tli(tnli), ea_code_fh)
 
-    fh.write("""def everything_bagel(window, event):\n
+    fh.write("""def everything_bagel(window, event, values, appstate):\n
     \tif event in everything_bagel_dict:\n
-    \t\teverything_bagel_dict[event].on_event(window, event)""")
+    \t\teverything_bagel_dict[event].on_event(window, values, event, appstate)""")
     fh.close()
     with open(lid + "_app_actions.py", "w") as fh:
         fh.write(ast.unparse(apps_event_ast_root))
@@ -252,9 +251,9 @@ def gen_event_actions(tnld, labels):
             yield (bld, labels)
     gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh)
 
-    fh.write("""def everything_bagel(window, event):\n
+    fh.write("""def everything_bagel(window, event, values, appstate):\n
     \tif event in everything_bagel_dict:\n
-    \t\teverything_bagel_dict[event].on_event(window, event)""")
+    \t\teverything_bagel_dict[event].on_event(window, event, values, appstate)""")
     fh.close()
     with open(lid + "_app_actions.py", "w") as fh:
         fh.write(ast.unparse(apps_event_ast_root))
