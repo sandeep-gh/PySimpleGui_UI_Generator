@@ -6,6 +6,8 @@ from layout_generator_step_by_step import get_key_from_label
 import ast
 from ast import Pass
 import re
+from dataclasses import dataclass, make_dataclass, field
+from typing import Any
 
 action_body = """
 def on_event(window, values, event, appstate):
@@ -35,18 +37,75 @@ def add_func_to_ast(func_name, ast_root,  defined_funcs):
     afuncNode = ast.FunctionDef(
         func_name, args=fn_args, decorator_list=[], lineno=None, body=[Pass()], types_ignores=[])
     ast_root.body.append(afuncNode)
+    return afuncNode
 
 # ........................................................................................
 
 # - - - - - - - - - - - -  gen app/event actions - - - - - - - - - - - -
 
 
+def get_ast_assignment_stmt(target, dictname, key):
+    '''
+
+    '''
+
+    assign_stmt = ast.Assign(targets=[ast.Attribute(value=ast.Name(id='appstate', ctx=ast.Load()), attr=target, ctx=ast.Store())],
+                             value=ast.Subscript(value=ast.Name(id=dictname, ctx=ast.Load()),
+                                                 slice=ast.Index(value=ast.Constant(
+                                                     value=key, kind=None)),
+                                                 ctx=ast.Load()), type_comment=None, lineno=None)
+
+    return assign_stmt
+
+
+def add_ast_assignment_stmt_func(funcdefnode, stmts):
+    '''
+
+    '''
+    idx = 0
+    for stmt in stmts:
+        funcdefnode.body.insert(idx, stmt)
+        idx = idx+1
+
+
+def add_assignment_ast_func(funcdefnode, target, dictname, key):
+    '''
+    adds statement: target = dictname[key] to ast
+    '''
+
+    assign_stmt = ast.Assign(targets=[ast.Attribute(value=ast.Name(id='appstate', ctx=ast.Load()), attr=target, ctx=ast.Store())],
+                             value=ast.Subscript(value=ast.Name(id=dictname, ctx=ast.Load()),
+                                                 slice=ast.Index(value=ast.Constant(
+                                                     value=key, kind=None)),
+                                                 ctx=ast.Load()), type_comment=None, lineno=None)
+
+    funcdefnode.body.insert(0, assign_stmt)
+
+
+def update_ast_func_appstate(gelem, label, func_name, ast_func):
+    if gelem.appstate_attrib is not None:
+        event_name = gelem.gid + get_key_from_label(label)
+        add_assignment_ast_func(
+            ast_func, gelem.appstate_attrib, "values", event_name)
+
+
 def gen_app_actions_bld(bld, labels, add_event_to_ast):
+    appstate_attribs = []
+    ast_assign_stmts = []
     for gelem in bld.layout_seq:
         for label in labels:
             event_name = gelem.gid + get_key_from_label(label)
             func_name = "on_" + event_name + "_click"
-            add_event_to_ast(func_name)
+            ast_func = add_event_to_ast(func_name)
+            if gelem.appstate_attrib is not None:
+                ast_assign_stmts.append(get_ast_assignment_stmt(
+                    gelem.appstate_attrib, "values", event_name))
+                appstate_attribs.append(gelem.appstate_attrib)
+
+    if ast_func is not None:  # if ast_func is not already been generated
+        # we are assuming the last gelem is the submit button
+        add_ast_assignment_stmt_func(ast_func, ast_assign_stmts)
+    return appstate_attribs
 
 
 def gen_event_action_lookup_bld(bld, labels, lid, fh):
@@ -185,11 +244,15 @@ def gen_event_actions_li(tnli):
     ea_code_fh.write("event_toggler_dict = {}\n")
 
     # -------------------------- codegen body - --------------------------------------------
+    appstate_attribs = []
     for bld, labels in walk_tli(tnli):
         gen_event_action_lookup_bld(bld, labels, lid, fh)
         # app_actions.py body
-        gen_app_actions_bld(bld, labels, event_ast_adder)
+        [appstate_attribs.append(_) for _ in
+            gen_app_actions_bld(bld, labels, event_ast_adder)]
 
+    # appstate = make_dataclass('appstate', [(fname, Any, field(default=None)) for fname in appstate_attribs
+    # ])
     # -------------------------- codegen closeout -------------------------------------------
 
     gen_code_exclusive_toggle(
@@ -206,9 +269,10 @@ def gen_event_actions_li(tnli):
     ea_code_fh.write(
         Template(action_body).substitute(lid=lid))
     ea_code_fh.close()
-
-
-# . . . . . . . . . . . . . . . . . . layout instance code gen . . . . . . . . . . . .
+    return appstate_attribs
+# . . . . . . . . . . . . . . . . . . end layout instance code gen . . . . . . . . . . . .
+# < >  < >  < >  < >  < >  < >  < >  < >  < > < >  < >  < >  < >  < >  < >  < >  < >  < > #
+# - - - - - - - - - - - - - - - - build appstate - - - - - - - - - - - - - -
 
 
 # - - - - - - - - - - - - - - - -  code gen APIs - - - - - - - - - - - - - - - -
