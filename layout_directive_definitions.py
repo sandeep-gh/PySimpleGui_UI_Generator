@@ -19,7 +19,7 @@ class Gelem:
 class BlockLD:
     def __init__(self, layout_seq,  stacked='H', framed=False):
         '''
-        layout_seq : a list of gelem
+        layout_seq : a list of (key-prefix, gelem)
         stacked : directive for stacking, horizontally ('H') or vertically ('V')  the gelem in the layout_seq
         framed: frame each instance of BlockLD
         '''
@@ -43,7 +43,7 @@ class TreeNodeLD:
 
 
 class BlockLI:
-    def __init__(self, bld, all_bkeys, all_blabels, stacked='H', framed=False, layout=None):
+    def __init__(self, bld, all_blabels, stacked='H', framed=False, layout=None):
         '''
         bld: a block/treeNode ld
         labelers: TBD
@@ -54,17 +54,16 @@ class BlockLI:
         self.bld = bld
         self.stacked = stacked
         self.framed = framed
-        self.all_bkeys = all_bkeys
         self.all_blabels = all_blabels
         self.layout = layout
 
     @classmethod
-    def bli_single(cls, layout_seq, keys, labels, stacked='H', framed=False):
+    def bli_single(cls, layout_seq, labels, stacked='H', framed=False):
         '''
         generate a single instance from layout_seq
         '''
         bld = BlockLD(layout_seq, stacked, framed)
-        return cls(bld, [keys], [labels])
+        return cls(bld, labels)
 
     @classmethod
     def bli_set(cls, layout_seq, all_bkeys, all_blabels, istacked='H', iframed=False, sstacked='H', sframed=False, ):
@@ -81,7 +80,7 @@ class ListNodeLI:
         all_li: a list of layout instances (tree/list/block)
         framed: make a frame around generated layout
         '''
-        self.all_layouts = all_layouts
+        self.all_li = all_li
         self.stacked = stacked
         self.framed = framed
 

@@ -4,7 +4,11 @@ import layout_directive_definitions as lddm
 # - - - - - - - - - - - - - - - - gelem functions- - - - - - - - - - - - - - -
 
 
-def get_gstyle(key, gelem_cons, label, style):
+def get_key_from_label(label):
+    return label.lower().replace(" ", "_")
+
+
+def get_gstyle(gelem_cons, key_prefix, style, label):
     '''
     '''
     adict = None
@@ -22,7 +26,7 @@ def get_gstyle(key, gelem_cons, label, style):
 
     if adict == None:
         adict = style
-    return {**adict, **{'key': key}}
+    return {**adict, **{'key': key_prefix + get_key_from_label(label)}}
 
 
 # - - - - - - - - - - - - - - - - layout generators/compositors - - - - - - - - - - - - - - -
@@ -31,8 +35,8 @@ def layout_horizontal_generator(gelem_iter_func):
     given a list of gelem_generator, creates a layout generator that stacks the
     gelem_generators horizontally
     '''
-    def f(keys, labels): return [[gelem for gelem in gelem_iter_func(keys, labels)
-                                  ]]
+    def f(labels): return [[gelem for gelem in gelem_iter_func(labels)
+                            ]]
     return f
 
 
@@ -41,8 +45,8 @@ def layout_vertical_generator(gelem_iter_func):
     given a list of gelem_generator, creates a layout generator that stacks the
     gelem_generators vertically
     '''
-    def f(keys, labels): return [[gelem]
-                                 for gelem in gelem_iter_func]
+    def f(labels): return [[gelem]
+                           for gelem in gelem_iter_func(labels)]
     return f
 
 
@@ -64,17 +68,17 @@ def stitch_layouts(all_layouts=[], cstacked='H', cframed=False):
     return clayout_elem
 
 
-def build_li_set(layout_generator, all_bkeys, all_blabels, stacked='H', framed=False):
+def build_li_set(layout_generator, all_blabels, stacked='H', framed=False):
     '''
     build a layout instance from a generator and set of labelers
     '''
     if stacked == 'V':
-        layout_elem = [[layout_generator(keys, labels)]
-                       for keys, labels in zip(all_bkeys, all_blabels)]
+        layout_elem = [[layout_generator(glabels)]
+                       for glabels in all_blabels]
 
     if stacked == 'H':
         layout_elem = [[
-            layout_generator(keys, labels) for keys, labels in zip(all_bkeys, all_blabels)
+            layout_generator(glabels) for glabels in all_blabels
         ]]
     if framed:
         flayout_elem = sg.Frame("", layout_elem)
@@ -92,25 +96,28 @@ def get_layout_generator_bld(bld):
     create layout generator from bld
     returns a generator that takes keys and labels (for each gelem)
     '''
-    gcons = [  # get all the element constructors in that order
-        cls.gcons for cls in bld.layout_seq]
-    styles = [
-        cls.sty for cls in bld.layout_seq]
+    key_prefixes = [_[0] for _ in bld.layout_seq]
+    gelems = [_[1] for _ in bld.layout_seq]
 
-    def gelem_iter(keys, labels, gcons=gcons, styles=styles):
-        for key, gcon, label, sty in zip(keys, gcons, labels, styles):
-            yield gcon(**get_gstyle(key, gcon, label, sty))
+    gcons = [  # get all the element constructors in that order
+        _.gcons for _ in gelems]
+    styles = [
+        _.sty for _ in gelems]
+
+    def gelem_iter(labels, key_prefixes=key_prefixes, gcons=gcons, styles=styles):
+        for gcon, key_prefix, sty, label in zip(gcons, key_prefixes, styles, labels):
+            yield gcon(**get_gstyle(gcon, key_prefix,  sty, label))
 
     # choose a h or v generator for gelems
-    def layout_instance_generator(keys, labels):
+    def layout_instance_generator(gelem_labels):
         return sg.Column(
             [layout_horizontal_generator, layout_vertical_generator][
-                bld.stacked == 'V'](gelem_iter)(keys, labels)
+                bld.stacked == 'V'](gelem_iter)(gelem_labels)
         )
 
     if bld.framed:
-        def final_layout_instance_generator(keys, labels): return sg.Frame("",
-                                                                           [[layout_instance_generator(keys, labels)]])
+        def final_layout_instance_generator(gelem_labels): return sg.Frame("",
+                                                                           [[layout_instance_generator(gelem_labels)]])
     else:
         final_layout_instance_generator = layout_instance_generator
     return final_layout_instance_generator
@@ -183,7 +190,7 @@ def walk_tnli(tnli):
 
 def walk_li(li):
     if isinstance(li, lddm.ListNodeLI):
-        for _ in li.all_layouts:
+        for _ in li.all_li:
             yield from walk_li(_)
     elif isinstance(li, lddm.TreeNodeLI):
         yield from walk_tnli(li)
@@ -198,11 +205,11 @@ def set_li_layout(sli):
     '''
     for bli in walk_li(sli):
         bli.layout = get_layout_block(
-            bli.bld, bli.all_bkeys, bli.all_blabels, bli.stacked, bli.framed)
+            bli.bld,  bli.all_blabels, bli.stacked, bli.framed)
 
 
 def compose_layout_lnli(lnli):
-    return stitch_layouts([compose_layout_li(_) for _ in lnli.all_layouts], lnli.stacked, lnli.framed)
+    return stitch_layouts([compose_layout_li(_) for _ in lnli.all_li], lnli.stacked, lnli.framed)
 
 
 def compose_layout_tnli(tnli):
@@ -211,7 +218,8 @@ def compose_layout_tnli(tnli):
     if tnli.right_li is None:
         final_layout = left_layout
         if tnli.framed:
-            final_layout = [[sg.Frame("", final_layout)]]
+            # TODO: is final_layout never a list??
+            final_layout = sg.Frame("", [[final_layout]])
         return final_layout
 
     right_li = tnli.right_li
@@ -235,13 +243,13 @@ def compose_layout_li(lin):
 # . . . . . . . . . . . . . . . . . . end compose layouts . . . . . . . . . . . .
 
 
-def get_layout_block(bld, all_bkeys, all_blabels, stacked='H', framed=False):
+def get_layout_block(bld, all_blabels, stacked='H', framed=False):
     '''
     returns a list consisting either list (of Column or Frame) or of
     column or frame element
     '''
     layout_generator = get_layout_generator_bld(bld)
-    return build_li_set(layout_generator, all_bkeys, all_blabels, stacked, framed)
+    return build_li_set(layout_generator, all_blabels, stacked, framed)
 
 
 def build_layout_treenode_set(tnld, labelers, stacked='H', framed=False):
