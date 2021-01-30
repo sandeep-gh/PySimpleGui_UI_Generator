@@ -12,8 +12,10 @@ button_gelem = Gelem(sg.Button,  sty={"auto_size_button": 'False',
 bld1 = BlockLD([('k_', button_gelem)], stacked='H', framed=True)
 
 # create two instance of bld1 with labels A and B
-bli1 = BlockLI(bld1, ['A', 'B'], stacked='V', framed=True)
+bli1 = BlockLI(bld1, [(['A'], ['']), (['B'], [''])], stacked='V', framed=True)
 
+
+bli1 = BlockLI.bli_single([('my button', button_gelem)])
 
 tnli = TreeNodeLI(bli1,
                   None,  stacked='H', framed=True)

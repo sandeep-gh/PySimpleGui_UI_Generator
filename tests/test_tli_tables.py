@@ -10,7 +10,6 @@ text_gelem = Gelem(sg.Text,  sty={"auto_size_text": 'False',
 
 # a row template with 2 cols
 rowT = BlockLD([('lc_', text_gelem), ('rc_', text_gelem)])
-bli = BlockLI(rowT, [('k1', 'v1'), ('k2', 'v2'), ('k3', 'v3')], stacked='V')
 
 keys_values_set = [(('ak1', 'ak2', 'ak3'), ('av1', 'av2', 'av3')),
                    (('bk1', 'bk2', 'bk3'), ('bv1', 'bv2', 'bv3')),
@@ -18,15 +17,27 @@ keys_values_set = [(('ak1', 'ak2', 'ak3'), ('av1', 'av2', 'av3')),
                    ]
 
 
-def cb_gen(tid): return BlockLI.bli_single(
-    [tid, Gelem(sg.Checkbox, {'text': 'tbl ' + tid})], (tid,))
+def mlk2(ls1, ls2, key_suffix):
+    '''
+    this is for multiple instances of 2-wide bld
+
+    '''
+    if key_suffix is None:
+        # make label the key suffix
+        pass
+    if isinstance(key_suffix, str):
+        return [((x1, x2), (key_suffix, key_suffix)) for x1, x2 in zip(ls1, ls2)]
+        pass
+
+    return [((x1, x2), (ks, ks)) for x1, x2, ks in zip(ls1, ls2, key_suffix)]
+    # TODO
+    # if key_suffix is a simple list
 
 
-tli = ListNodeLI([TreeNodeLI(cb_gen(str(idx)),
-                             BlockLI(rowT, [(k, v) for k, v in zip(
-                                 keys, values)], stacked='V', framed=True), stacked='V'
-                             )
-                  for idx, (keys, values) in enumerate(keys_values_set)])
+# make_label_keysuffix([(k,v) for k, v in zip(keys, values)], str(ridx))
+# for ridx, (keys, values) in enumerate(keys_values_set)])
+tli = ListNodeLI([BlockLI(rowT, mlk2(keys, values, [str(tidx) + str(ridx) for ridx in range(len(keys))]), stacked='V', framed=True)
+                  for tidx, (keys, values) in enumerate(keys_values_set)])
 lg.set_li_layout(tli)
 the_layout = lg.compose_layout_li(tli)
 print(the_layout)

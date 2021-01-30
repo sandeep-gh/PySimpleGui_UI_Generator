@@ -2,7 +2,6 @@
 import os
 from string import Template
 import layout_directive_definitions as lddm
-from layout_generator_step_by_step import get_key_from_label
 import ast
 from ast import Pass
 import re
@@ -89,12 +88,17 @@ def update_ast_func_appstate(gelem, label, func_name, ast_func):
             ast_func, gelem.appstate_attrib, "values", event_name)
 
 
-def gen_app_actions_bld(bld, labels, add_event_to_ast):
+def gen_app_actions_bld(bld, all_labels_keysuffix_pair, add_event_to_ast):
     appstate_attribs = []
     ast_assign_stmts = []
-    for gelem in bld.layout_seq:
-        for label in labels:
-            event_name = gelem.gid + get_key_from_label(label)
+    inst_labelt = [_[0] for _ in all_labels_keysuffix_pair]
+    inst_suffixt = [_[1] for _ in all_labels_keysuffix_pair]
+    for gpos, (prefix, gelem) in enumerate(bld.layout_seq):
+        gelem_labels = [_[gpos] for _ in inst_labelt]
+        gelem_suffixs = [_[gpos] for _ in inst_suffixt]
+        for (glabel, key_suffix) in zip(gelem_labels, gelem_suffixs):
+            label, event_name = lddm.get_label_key(glabel, prefix, key_suffix)
+
             func_name = "on_" + event_name + "_click"
             ast_func = add_event_to_ast(func_name)
             if gelem.appstate_attrib is not None:
@@ -108,15 +112,15 @@ def gen_app_actions_bld(bld, labels, add_event_to_ast):
     return appstate_attribs
 
 
-def gen_event_action_lookup_bld(bld, labels, lid, fh):
+def gen_event_action_lookup_bld(bld, all_labels_keysuffix_pair, lid, fh):
     '''
     generate event-name -to-> event_action mapping
     '''
-
     adict = {}
-    for gelem in bld.layout_seq:
-        for label in labels:
-            event_name = gelem.gid + get_key_from_label(label)
+
+    for labelt, suffixt in all_labels_keysuffix_pair:
+        for (prefix, gelem), label, suffix in zip(bld.layout_seq, labelt, suffixt):
+            label, event_name = lddm.get_label_key(label, prefix, suffix)
             adict[event_name] = lid + "_event_actions"
 
     adict_str = str(adict).replace(
@@ -132,12 +136,12 @@ def gen_event_action_lookup_bld(bld, labels, lid, fh):
 
 def walk_tli(tnli):
     if isinstance(tnli.left_li, lddm.BlockLI):
-        yield (tnli.left_li.bld, tnli.left_li.labels)
+        yield (tnli.left_li.bld, tnli.left_li.all_labels_keysuffix_pair)
     if isinstance(tnli.left_li, lddm.TreeNodeLI):
         walk_tli(tnli.left_li)
 
     if isinstance(tnli.right_li, lddm.BlockLI):
-        yield (tnli.right_li.bld, tnli.right_li.labels)
+        yield (tnli.right_li.bld, tnli.right_li.all_labels_keysuffix_pair)
     if isinstance(tnli.right_li, lddm.TreeNodeLI):
         walk_tli(tnli.rigt_li)
 
@@ -169,32 +173,40 @@ def gen_exclusive_toggle_code_snippet(gelem_name, toggle_attr, toggle_on_val, to
     return toggler_instance_expr
 
 
-def gen_code_exclusive_toggle_gelem_attr(lid, gelem, toggle_attr, toggle_values,  labels):
+def gen_code_exclusive_toggle_gelem_attr(lid, prefix, gelem, toggle_attr, toggle_values,  default_event):
+
     toggler_inst_expr = gen_exclusive_toggle_code_snippet(
-        gelem.gid, toggle_attr, toggle_values[0], toggle_values[1], gelem.gid + get_key_from_label(labels[0]))
+        prefix, toggle_attr, toggle_values[0], toggle_values[1], default_event
+    )
 
     toggler_name = Template("__${gelem_name}_${toggle_attr}_toggler").substitute(
-        gelem_name=gelem.gid, toggle_attr=toggle_attr)
+        gelem_name=prefix, toggle_attr=toggle_attr)
     return [toggler_name, toggler_inst_expr]
 
 
 def gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh):
 
-    for (bld, labels) in bld_walker():
+    for (bld, all_labels_keysuffix_pair) in bld_walker():
 
-        for gelem in bld.layout_seq:
+        inst_labelt = [_[0] for _ in all_labels_keysuffix_pair]
+        inst_suffixt = [_[1] for _ in all_labels_keysuffix_pair]
+        for gpos, (prefix, gelem) in enumerate(bld.layout_seq):
+            gelem_labels = [_[gpos] for _ in inst_labelt]
+            gelem_suffixs = [_[gpos] for _ in inst_suffixt]
+
             if gelem.ex_toggle_attrs is not None:
                 all_togglers = []
                 toggler_declarations = []
                 event_toggler_mapping = {}
-                for attr, vals in gelem.ex_toggle_attrs:
-                    [toggler_name, toggler_decl] = gen_code_exclusive_toggle_gelem_attr(lid,
-                                                                                        gelem, attr, vals, labels)
+                for attr, vals in gelem.ex_toggle_attrs.items():
+                    [toggler_name, toggler_decl] = gen_code_exclusive_toggle_gelem_attr(lid, prefix,
+                                                                                        gelem, attr, vals, (gelem_labels[0], gelem_suffixs[0]))
                     all_togglers.append(toggler_name)
                     toggler_declarations.append(toggler_decl)
                 if all_togglers:
-                    for label in labels:
-                        event_name = gelem.gid + get_key_from_label(label)
+                    for label, key_suffix in gelem_labels, gelem_suffixs:
+                        label, event_name = lddm.get_label_key(
+                            label, prefix, key_suffix)
                         event_toggler_mapping[event_name] = all_togglers
                 if toggler_declarations:
                     ea_code_fh.write("\n".join(toggler_declarations) + "\n")
@@ -218,12 +230,10 @@ def gen_code_exclusive_toggle(lid, bld_walker, ea_code_fh):
 # < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < >  < > #
 # - - - - - - - - - - - - - - - - layout instance code gen - - - - - - - - - - - - - -
 # TODO: currently two version are kept: one for tnld and another for tnli. Not sure both are required
-def gen_event_actions_li(tnli):
-    lid = "test_bld"
+def gen_event_actions_li(tnli, lid):  # TODO: add code for lnli
     # codegen setup
     fh = open("everything_bagel_dictionary.py", "w")
-    fh.write(Template("import ${lid}_event_actions\n").substitute(
-        lid=lid))
+    fh.write(Template("import ${lid}_event_actions\n").substitute(lid=lid))
     fh.write("everything_bagel_dict = {}\n")
     if os.path.exists(lid + "_app_actions.py"):
         defined_funcs = get_funcs_in_module(lid + "_app_actions.py")
@@ -232,11 +242,12 @@ def gen_event_actions_li(tnli):
         defined_funcs = set()
         apps_event_ast_root = ast.parse("")
 
-    def event_ast_adder(func_name, apps_event_ast_root=apps_event_ast_root,
-                        defined_funcs=defined_funcs): return add_func_to_ast(func_name, apps_event_ast_root, defined_funcs)
+    def event_ast_adder(func_name,
+                        apps_event_ast_root=apps_event_ast_root,
+                        defined_funcs=defined_funcs):
+        return add_func_to_ast(func_name, apps_event_ast_root, defined_funcs)
     # event_actions.py header
-    ea_code_fh = open(lid
-                      + "_event_actions.py", "w")
+    ea_code_fh = open(lid + "_event_actions.py", "w")
     ea_code_fh.write(
         "from everything_bagel_common import ToggleExclusive, ToggleExclusiveOther\n")
     ea_code_fh.write("import importlib\n")
@@ -245,11 +256,11 @@ def gen_event_actions_li(tnli):
 
     # -------------------------- codegen body - --------------------------------------------
     appstate_attribs = []
-    for bld, labels in walk_tli(tnli):
-        gen_event_action_lookup_bld(bld, labels, lid, fh)
+    for bld, all_labels_keysuffix_pair in walk_tli(tnli):
+        gen_event_action_lookup_bld(bld, all_labels_keysuffix_pair, lid, fh)
         # app_actions.py body
         [appstate_attribs.append(_) for _ in
-            gen_app_actions_bld(bld, labels, event_ast_adder)]
+            gen_app_actions_bld(bld, all_labels_keysuffix_pair, event_ast_adder)]
 
     # appstate = make_dataclass('appstate', [(fname, Any, field(default=None)) for fname in appstate_attribs
     # ])
